@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Edge Client</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "/node_modules/three/build/three.module.js",
+        "stats.js": "/node_modules/three/examples/jsm/libs/stats.module.js"
+      }
+    }
+  </script>
+</head>
+
+<body>
+  <div id="stats-container"></div>
+
+  <div id="debug-panel">
+    <div class="metric-group">
+      <div class="metric-title"><span class="status-dot dot-active"></span>MT-Web3DRC 监控面板</div>
+      <div class="metric-row"><span>状态:</span> <span id="sys-status">初始化...</span></div>
+    </div>
+
+    <!-- 1. 论文核心：设备与网络感知 -->
+    <div class="metric-group">
+      <div class="metric-title">📡 设备与网络感知 (Client)</div>
+      <div class="metric-row"><span>网络类型:</span> <span id="net-type">-</span></div>
+      <div class="metric-row"><span>下行带宽:</span> <span id="net-downlink">- Mbps</span></div>
+      <div class="metric-row"><span>RTT延迟:</span> <span id="net-rtt">- ms</span></div>
+      <div class="metric-row"><span>CPU并发:</span> <span id="cpu-cores">-</span></div>
+    </div>
+
+    <!-- 2. 论文核心：视觉注意力调度 -->
+    <div class="metric-group">
+      <div class="metric-title">👁️ 视觉注意力调度 (Server)</div>
+      <div class="metric-row"><span>视场中心权重:</span> <span id="fov-weight">-</span></div>
+      <div class="metric-row"><span>增益比 (R):</span> <span id="gain-r">-</span></div>
+      <div class="metric-row"><span>决策策略:</span> <span id="schedule-strategy">-</span></div>
+      <div class="metric-row"><span>推荐LOD:</span> <span id="rec-lod">-</span></div>
+    </div>
+
+    <!-- 3. 论文核心：缓存与内存 -->
+    <div class="metric-group">
+      <div class="metric-title">💾 缓存与内存 (Edge/Client)</div>
+      <div class="metric-row"><span>边缘缓存命中:</span> <span id="cache-hit">-</span></div>
+      <div class="metric-row"><span>客户端内存块:</span> <span id="client-mem">- / 10</span></div>
+      <div class="metric-row"><span>视场内块数:</span> <span id="visible-blocks">-</span></div>
+      <div class="metric-row"><span>数据流向:</span> <span id="data-source">Idle</span></div>
+      <div class="metric-row"><span>Real FPS:</span> <span id="real-fps">-</span> <span id="fps-drop-count"
+          style="color: #ff5555; font-size: 0.8em;">(0 drops)</span></div>
+      <div class="metric-row"><span>Frame Time:</span> <span id="frame-time">- ms</span></div>
+      <div class="metric-row"><span>VSync:</span>
+        <select id="vsync-selector" style="width: 80px; padding: 0;">
+          <option value="on">ON</option>
+          <option value="off">OFF (Sim)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- 4. 渲染控制 (新增) -->
+    <!-- 移至右侧面板 -->
+  </div>
+
+  <div id="ui-container">
+
+    <div id="render-panel">
+      <div class="strategy-title">渲染控制 (Dev)</div>
+
+      <div class="network-input-row">
+        <label>FPS Limit:</label>
+        <div style="display: flex; align-items: center;">
+          <label style="margin-right: 5px;"><input type="checkbox" id="fps-limit-enabled" checked> On</label>
+          <input type="number" id="fps-limit-target" value="60"
+            style="width: 40px; background: #222; color: #fff; border: 1px solid #555;">
+        </div>
+      </div>
+
+      <div class="network-input-row">
+        <label>Load Sim:</label>
+        <select id="load-mode-selector"
+          style="width: 90px; padding: 0; background: #222; color: #fff; border: 1px solid #555;">
+          <option value="none">None</option>
+          <option value="low">Low (5ms)</option>
+          <option value="medium">Med (15ms)</option>
+          <option value="high">High (30ms)</option>
+          <option value="custom">Custom</option>
+        </select>
+      </div>
+
+      <div class="network-input-row" id="custom-load-row" style="display: none;">
+        <label>Custom (ms):</label>
+        <input type="number" id="custom-load-ms" value="20"
+          style="width: 60px; background: #222; color: #fff; border: 1px solid #555;">
+      </div>
+
+      <div class="network-input-row">
+        <label>Max Tris (M):</label>
+        <input type="number" id="max-triangles-input" value="2.0" step="0.5"
+          style="width: 60px; background: #222; color: #fff; border: 1px solid #555;">
+      </div>
+
+      <div class="network-input-row">
+        <label>Shader Load:</label>
+        <input type="range" id="shader-stress-input" min="0" max="5000" step="100" value="0" style="width: 80px;">
+        <span id="shader-stress-val" style="font-size: 0.8em; margin-left: 5px;">0</span>
+      </div>
+
+      <div class="network-input-row">
+        <label>Resolution:</label>
+        <select id="resolution-selector"
+          style="width: 80px; padding: 0; background: #222; color: #fff; border: 1px solid #555;">
+          <option value="1.0">1.0x (Native)</option>
+          <option value="1.5">1.5x (High)</option>
+          <option value="2.0">2.0x (Ultra)</option>
+          <option value="4.0">4.0x (Extreme)</option>
+        </select>
+      </div>
+
+      <div class="network-input-row">
+        <label>VRAM (MB):</label>
+        <input type="number" id="vram-limit-input" value="1024" step="128"
+          style="width: 60px; background: #222; color: #fff; border: 1px solid #555;">
+        <span id="vram-usage-display" style="font-size: 0.8em; color: #aaa; margin-left: 5px;">(0%)</span>
+      </div>
+    </div>
+
+    <div id="network-panel">
+      <div class="strategy-title">网络环境模拟</div>
+      <select id="network-selector" aria-label="网络环境选择" title="网络环境选择">
+        <option value="4g">4G (10Mbps, 50ms)</option>
+        <option value="5g" selected>5G (100Mbps, 10ms)</option>
+        <option value="wifi">WiFi 6 (300Mbps, 5ms)</option>
+        <option value="poor">Weak Signal (1Mbps, 200ms)</option>
+        <option value="custom">Custom</option>
+      </select>
+      <div id="custom-network">
+        <div class="network-input-row">
+          <label for="custom-bw">BW (Mbps):</label>
+          <input type="number" id="custom-bw" value="50" class="network-input" aria-label="自定义带宽" title="自定义带宽">
+        </div>
+        <div class="network-input-row">
+          <label for="custom-rtt">RTT (ms):</label>
+          <input type="number" id="custom-rtt" value="20" class="network-input" aria-label="自定义延迟" title="自定义延迟">
+        </div>
+      </div>
+    </div>
+
+    <div id="strategy-panel">
+      <div class="strategy-title">MTP 测量策略</div>
+      <select id="strategy-selector" aria-label="选择 MTP 测量策略" title="选择 MTP 测量策略">
+        <option value="mt-web3drc" selected>MT-Web3DRC (视觉感知链表)</option>
+        <option value="traditional">Std-LOD (传统动态堆栈)</option>
+        <option value="seq-load">Seq-Load (顺序加载 - 基线)</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="model-switcher">
+    <button class="nav-btn" id="prev-btn">❮</button>
+    <div id="model-info">
+      <span id="model-name">Loading...</span>
+      <span id="model-count">1 / 10</span>
+    </div>
+    <button class="nav-btn" id="next-btn">❯</button>
+  </div>
+
+  <script type="module" src="/index.js"></script>
+</body>
+
+</html>

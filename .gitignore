@@ -1,0 +1,25 @@
+# node
+node_modules/
+
+# python
+.venv/
+__pycache__/
+
+# logs
+logs/
+
+# cache
+Cache/
+
+# redis
+Redis/*.rdb
+Redis/*.aof
+
+# certificate
+*.key
+*.pem
+ca.key
+key.pem
+
+# system
+.DS_Store
